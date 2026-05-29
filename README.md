@@ -5,6 +5,7 @@
 Corners are often decided before the shot happens.
 
 This project analyzes defensive corner performance using StatsBomb Open Data by measuring which teams control the **first meaningful contact** after a corner delivery.
+Only the first meaningful event after the corner delivery is considered. Subsequent phases of play are excluded.
 
 Rather than focusing only on goals conceded, the analysis evaluates:
 
