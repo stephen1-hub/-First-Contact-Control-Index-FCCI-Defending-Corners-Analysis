@@ -136,6 +136,7 @@ Win vs Danger breakdown
 League-wide ranking visualization
 Raw event inspection
 Fully cached multi-match pipeline
+# live demo: https://gpjemckqbzy3eoepoenj6k.streamlit.app/
 📌 Key Contribution
 
 This project reframes set-piece analysis by shifting focus from:
