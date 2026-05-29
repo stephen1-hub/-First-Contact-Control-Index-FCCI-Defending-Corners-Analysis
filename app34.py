@@ -1,98 +1,58 @@
-# ⚽ FCCI Streamlit Dashboard — Full Structure
-
-
 # ---------------------------------------------------
-# IMPORT LIBRARIES
+# ⚽ FCCI DASHBOARD — INTERACTIVE VERSION
 # ---------------------------------------------------
+
 import streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
-import plotly.graph_objects as go
 
 # ---------------------------------------------------
 # PAGE CONFIG
 # ---------------------------------------------------
 st.set_page_config(
-    page_title="First Contact Control Index Dashboard",
+    page_title="FCCI Interactive Dashboard",
     layout="wide"
 )
 
-# ---------------------------------------------------
-# TITLE
-# ---------------------------------------------------
 st.title("⚽ First Contact Control Index (FCCI)")
-st.markdown(
-    "Analyzing defensive corner performance using StatsBomb Open Data"
-)
+st.markdown("Interactive league-wide set-piece first-contact analysis")
 
 # ---------------------------------------------------
-# LOAD MATCH DATA
+# SEASON SELECTOR
+# ---------------------------------------------------
+SEASONS = {
+    "La Liga 2020/21": {
+        "competition_id": 11,
+        "season_id": 90
+    }
+}
+
+season_name = st.sidebar.selectbox(
+    "Select Season",
+    list(SEASONS.keys())
+)
+
+competition_id = SEASONS[season_name]["competition_id"]
+season_id = SEASONS[season_name]["season_id"]
+
+# ---------------------------------------------------
+# LOAD MATCHES
 # ---------------------------------------------------
 @st.cache_data
+def load_matches(competition_id, season_id):
 
-def load_matches():
+    url = f"https://raw.githubusercontent.com/statsbomb/open-data/master/data/matches/{competition_id}/{season_id}.json"
+    data = requests.get(url).json()
 
-    matches_url = (
-        "https://raw.githubusercontent.com/statsbomb/open-data/master/data/matches/11/90.json"
-    )
+    return pd.json_normalize(data)
 
-    data = requests.get(matches_url).json()
+matches = load_matches(competition_id, season_id)
 
-    matches = pd.json_normalize(data)
-
-    return matches
-
-matches = load_matches()
+match_ids = matches["match_id"].tolist()
 
 # ---------------------------------------------------
-# SIDEBAR
-# ---------------------------------------------------
-st.sidebar.header("Dashboard Filters")
-
-match_options = matches[
-    [
-        "match_id",
-        "home_team.home_team_name",
-        "away_team.away_team_name"
-    ]
-].copy()
-
-match_options["label"] = (
-    match_options["home_team.home_team_name"]
-    + " vs "
-    + match_options["away_team.away_team_name"]
-)
-
-selected_match = st.sidebar.selectbox(
-    "Select Match",
-    match_options["label"]
-)
-
-selected_match_id = match_options[
-    match_options["label"] == selected_match
-]["match_id"].values[0]
-
-# ---------------------------------------------------
-# LOAD EVENT DATA
-# ---------------------------------------------------
-@st.cache_data
-
-def load_events(match_id):
-
-    events_url = (
-        f"https://raw.githubusercontent.com/statsbomb/open-data/master/data/events/{match_id}.json"
-    )
-
-    data = requests.get(events_url).json()
-
-    df = pd.json_normalize(data)
-
-    return df
-
-
-# ---------------------------------------------------
-# FIRST CONTACT LOGIC
+# FIRST CONTACT ENGINE
 # ---------------------------------------------------
 priority = {
     "Shot": 3,
@@ -104,6 +64,12 @@ priority = {
     "Miscontrol": 1
 }
 
+def load_events(match_id):
+
+    url = f"https://raw.githubusercontent.com/statsbomb/open-data/master/data/events/{match_id}.json"
+    data = requests.get(url).json()
+
+    return pd.json_normalize(data)
 
 def get_first_contact(df, idx):
 
@@ -115,165 +81,156 @@ def get_first_contact(df, idx):
     for i in range(idx + 1, max_index):
 
         event = df.iloc[i]
-        etype = event['type.name']
+        etype = event.get("type.name", None)
+        team = event.get("team.name", None)
 
-        if etype in priority:
+        if etype in priority and team is not None:
 
             if priority[etype] > best_score:
-                best_event = (etype, event['team.name'])
+                best_event = (etype, team)
                 best_score = priority[etype]
 
     return best_event if best_event else (None, None)
 
-
-# ---------------------------------------------------
-# CLASSIFICATION FUNCTION
-# ---------------------------------------------------
 def classify(event):
 
     if event in ["Clearance", "Block", "Interception"]:
         return "Win"
-
     elif event == "Shot":
         return "Danger"
-
     elif event in ["Duel", "Ball Receipt*", "Miscontrol"]:
         return "Contested"
-
-    else:
-        return "Other"
-
+    return "Other"
 
 # ---------------------------------------------------
-# PROCESS MATCH
+# BUILD DATASET (CACHED)
 # ---------------------------------------------------
-df = load_events(selected_match_id)
+@st.cache_data
+def build_fc_dataset(match_ids):
 
-corners = df[
-    (df['type.name'] == 'Pass') &
-    (df['pass.type.name'] == 'Corner')
-]
+    results = []
 
-results = []
+    for match_id in match_ids:
 
-for idx in corners.index:
+        df = load_events(match_id)
 
-    event, team = get_first_contact(df, idx)
+        corners = df[
+            (df["type.name"] == "Pass") &
+            (df["pass.type.name"] == "Corner")
+        ]
 
-    results.append({
-        "corner_index": idx,
-        "team": team,
-        "event": event,
-        "outcome": classify(event)
-    })
+        for idx in corners.index:
 
-fc_df = pd.DataFrame(results)
+            event, team = get_first_contact(df, idx)
 
-# ---------------------------------------------------
-# KPI METRICS
-# ---------------------------------------------------
-total_corners = len(fc_df)
+            if event is None or team is None:
+                continue
 
-wins = len(fc_df[fc_df['outcome'] == 'Win'])
+            results.append({
+                "match_id": match_id,
+                "team": team,
+                "event": event,
+                "outcome": classify(event)
+            })
 
-contested = len(fc_df[fc_df['outcome'] == 'Contested'])
+    return pd.DataFrame(results)
 
-danger = len(fc_df[fc_df['outcome'] == 'Danger'])
-
-win_rate = (wins / total_corners) * 100 if total_corners > 0 else 0
-
-danger_rate = (danger / total_corners) * 100 if total_corners > 0 else 0
-
-fcci = win_rate - danger_rate
+fc_df = build_fc_dataset(match_ids)
 
 # ---------------------------------------------------
-# DISPLAY KPIs
+# FILTERS
 # ---------------------------------------------------
-st.subheader("📊 FCCI Match Metrics")
+st.sidebar.header("Filters")
 
-col1, col2, col3, col4 = st.columns(4)
+min_corners = st.sidebar.slider("Minimum Corners", 0, 50, 3)
 
-with col1:
-    st.metric("Total Corners", total_corners)
+team_list = sorted(fc_df["team"].unique())
 
-with col2:
-    st.metric("Win Rate", f"{win_rate:.1f}%")
-
-with col3:
-    st.metric("Danger Rate", f"{danger_rate:.1f}%")
-
-with col4:
-    st.metric("FCCI", f"{fcci:.1f}")
-
-# ---------------------------------------------------
-# OUTCOME DISTRIBUTION
-# ---------------------------------------------------
-st.subheader("📈 First Contact Outcome Distribution")
-
-outcome_counts = (
-    fc_df['outcome']
-    .value_counts()
-    .reset_index()
+selected_teams = st.sidebar.multiselect(
+    "Select Teams",
+    team_list,
+    default=team_list
 )
 
-outcome_counts.columns = ['Outcome', 'Count']
+filtered_df = fc_df[
+    fc_df["team"].isin(selected_teams)
+]
+
+# ---------------------------------------------------
+# TEAM METRICS
+# ---------------------------------------------------
+comparison = filtered_df.groupby("team").agg(
+    Total_Corners=("outcome", "count"),
+    Wins=("outcome", lambda x: (x == "Win").sum()),
+    Danger=("outcome", lambda x: (x == "Danger").sum())
+).reset_index()
+
+comparison["Win Rate"] = comparison["Wins"] / comparison["Total_Corners"] * 100
+comparison["Danger Rate"] = comparison["Danger"] / comparison["Total_Corners"] * 100
+comparison["FCCI"] = comparison["Win Rate"] - comparison["Danger Rate"]
+
+# Apply filter
+comparison = comparison[comparison["Total_Corners"] >= min_corners]
+
+# ---------------------------------------------------
+# KPI SECTION
+# ---------------------------------------------------
+st.subheader("📊 Season Overview")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Teams", len(comparison))
+col2.metric("Total Corners_Faced", int(comparison["Total_Corners"].sum()))
+col3.metric("Avg FCCI", f"{comparison['FCCI'].mean():.2f}")
+
+# ---------------------------------------------------
+# FCCI RANKING
+# ---------------------------------------------------
+st.subheader("🏆 FCCI League Rankings")
+
+ranking = comparison.sort_values("FCCI", ascending=False)
+
+st.dataframe(ranking, use_container_width=True)
+
+# ---------------------------------------------------
+# VISUALIZATION 1 — FCCI
+# ---------------------------------------------------
+st.subheader("📈 FCCI Comparison")
 
 fig = px.bar(
-    outcome_counts,
-    x='Outcome',
-    y='Count',
-    title='Corner First Contact Outcomes'
+    ranking,
+    x="team",
+    y="FCCI",
+    color="FCCI",
+    title="First Contact Control Index (FCCI)"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------
-# EVENT DISTRIBUTION
+# VISUALIZATION 2 — WIN VS DANGER
 # ---------------------------------------------------
-st.subheader("⚽ First Contact Event Types")
+st.subheader("⚽ Defensive Corner Outcomes")
 
-fig2 = px.pie(
-    fc_df,
-    names='event',
-    title='Distribution of First Contact Events'
+fig2 = px.bar(
+    comparison,
+    x="team",
+    y=["Wins", "Danger"],
+    barmode="group"
 )
 
 st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------
-# TEAM BREAKDOWN
+# RAW DATA
 # ---------------------------------------------------
-st.subheader("🏟 Team Breakdown")
+st.subheader("📄 Event-Level Data")
 
-team_breakdown = (
-    fc_df.groupby(['team', 'outcome'])
-    .size()
-    .reset_index(name='count')
-)
+st.dataframe(filtered_df, use_container_width=True)
 
-fig3 = px.bar(
-    team_breakdown,
-    x='team',
-    y='count',
-    color='outcome',
-    barmode='stack',
-    title='Team First Contact Outcomes'
-)
-
-st.plotly_chart(fig3, use_container_width=True)
-
-# ---------------------------------------------------
-# RAW DATA TABLE
-# ---------------------------------------------------
-st.subheader("🗂 First Contact Event Table")
-
-st.dataframe(fc_df, use_container_width=True)
-
-# ---------------------------------------------------
+# --------------------------------------------------
 # FOOTER
-# ---------------------------------------------------
+# --------------------------------------------------
 st.markdown("---")
-st.markdown(
-    "Built using StatsBomb Open Data | Football Analytics Project"
-)
-
+st.markdown("Author")
+st.markdown("Stephen Yaw Ayamah, Football Data Analyst")
