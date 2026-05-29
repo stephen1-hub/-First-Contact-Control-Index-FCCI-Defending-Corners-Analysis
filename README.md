@@ -1,186 +1,167 @@
-# ⚽ First Contact Control Index (FCCI) — Defending Corners Analysis
+# First Contact Control Index (FCCI)
+Defensive Set-Piece Intelligence from StatsBomb Open Data
+# Project Overview
 
-## 📌 Project Overview
+Corners are often analysed through goals, xG, or final outcomes.
 
-Corners are often decided before the shot happens.
+But in reality:
 
-This project analyzes defensive corner performance using StatsBomb Open Data by measuring which teams control the **first meaningful contact** after a corner delivery.
-Only the first meaningful event after the corner delivery is considered. Subsequent phases of play are excluded.
+⚽ Set-pieces are frequently decided before the shot — at the first contact phase.
 
-Rather than focusing only on goals conceded, the analysis evaluates:
+This project introduces the First Contact Control Index (FCCI), a custom football analytics metric designed to evaluate how effectively teams control the first meaningful action after a corner delivery.
 
-* aerial dominance
-* defensive structure
-* immediate danger prevention
-* first-phase control during set pieces
+Instead of focusing on end results, this model evaluates the initial defensive response to danger.
 
-The project introduces a custom metric called the **First Contact Control Index (FCCI)** to quantify how effectively teams neutralize corners at first contact.
+🧠 Core Idea
 
----
+When a corner is delivered, the most important phase is not the shot.
 
-## 🎯 Objective
+It is the first 2–3 seconds after delivery, where teams either:
 
-Build a football analytics model that tracks:
+regain control
+concede immediate danger
+enter a contested aerial/second-ball phase
+# Objective
 
-* who wins first contact after corners
-* how corners are resolved
-* how often dangerous first contacts are allowed
+Build a data-driven framework to:
 
----
+Identify which teams win first contact on corners
+Measure how often dangerous situations are allowed
+Quantify defensive set-piece stability
+Compare teams across an entire league season
+# Dataset
 
-## 📊 Dataset
+Source: StatsBomb Open Data
+Competition: La Liga (selected season)
 
-**Source:** StatsBomb Open Data
+Data used:
+Match events data
+Corner deliveries
+Defensive actions (clearances, blocks, interceptions)
+Shot events
+Duel and ball recovery sequences
+# Methodology
+1. Corner Extraction
 
-* Competition: La Liga
-* Season: 2020/21
-* Data Type:
+Corners are identified using:
 
-  * Events Data
-  * Match Data
+Event type = Pass
+Pass type = Corner
+2. First Contact Detection
 
-Data Includes:
+For each corner:
 
-* corner deliveries
-* defensive clearances
-* duels
-* blocks
-* shots
-* second-phase events
+A short post-delivery window is scanned to identify the first meaningful football action.
 
----
+Key event types considered:
 
-## ⚽ Key Research Question
+Clearance
+Block
+Interception
+Duel
+Ball Receipt
+Miscontrol
+Shot
 
-> Which teams control corners best at first contact?
+A priority-based system determines the most impactful first contact.
 
----
+3. Outcome Classification
 
-# 🧠 Methodology
+Each first contact is classified as:
 
-## 1. Corner Extraction
+Outcome	Definition
+Win	Defensive control (clearance, block, interception)
+Danger	Immediate attacking threat (shot)
+Contested	Aerial/physical duel or unstable control phase
+Other	Neutral or low-impact events
+4. FCCI Formula
 
-Corner events were isolated using StatsBomb event data:
-
-* Event Type = Pass
-* Pass Type = Corner
-
----
-
-## 2. First Contact Detection
-
-For every corner:
-
-* a short post-corner event window was analyzed
-* the first decisive football action was identified
-
-Priority-based event logic was used to avoid noisy event chains.
-
-### Key Events Tracked
-
-* Clearance
-* Block
-* Interception
-* Duel
-* Shot
-* Ball Receipt*
-* Miscontrol
-
----
-
-## 3. Outcome Classification
-
-First contacts were categorized into:
-
-| Outcome   | Meaning                               |
-| --------- | ------------------------------------- |
-| Win       | Defensive control of first contact    |
-| Contested | Aerial/physical duel situations       |
-| Danger    | Immediate dangerous attacking outcome |
-
----
-
-# 📈 First Contact Control Index (FCCI)
-
-The custom FCCI metric was defined as:
+The First Contact Control Index (FCCI) is defined as:
 
 FCCI = Win Rate − Danger Rate
 
-Where:
+# Interpretation:
+High FCCI → strong defensive control at first contact
+Low / negative FCCI → vulnerability in early set-piece phases
+📈 Key Results (League-Level Analysis)
+🟢 Strong Defensive Control
+Team	FCCI
+Athletic Club	71.4
+Cádiz	50.0
+Osasuna	50.0
+Real Valladolid	50.0
 
-* Win Rate measures successful defensive control at first contact
-* Danger Rate measures immediate dangerous outcomes allowed from corners
+These teams consistently neutralise corners at the first contact stage.
 
-Higher FCCI values indicate stronger defensive corner control.
+🟡 Balanced / Mixed Profiles
+Team	FCCI
+Barcelona	8.9
+Real Madrid	31.2
+Valencia	12.5
 
----
+These teams show moderate control but allow structured danger phases.
 
-# 📊 Example Team Output
+🔴 Weak First-Contact Control
+Team	FCCI
+Sevilla	-18.2
+Villarreal	-14.3
+Real Betis	-12.5
+Levante	-8.3
 
-| Team            | Win Rate | Danger Rate | FCCI  |
-| --------------- | -------- | ----------- | ----- |
-| Athletic Club   | 66.7%    | 0.0%        | 66.7  |
-| Huesca          | 75.0%    | 25.0%       | 50.0  |
-| Elche           | 66.7%    | 33.3%       | 33.3  |
-| Barcelona       | 30.4%    | 21.7%       | 8.7   |
-| Atlético Madrid | 25.0%    | 50.0%       | -25.0 |
+These teams frequently concede dangerous first-contact situations.
 
----
-
-# 🔍 Key Insights
-
-* Most corners are decided through contested aerial phases rather than immediate shots.
-* Teams with strong first-contact control significantly reduce dangerous outcomes.
-* Barcelona faced a high number of corners but showed relatively weak first-contact dominance in this sample.
-* Atlético Madrid recorded the weakest FCCI score in the analyzed sample, indicating vulnerability in defensive corner phases.
-
----
-
-# 🛠 Tools & Libraries
-
-* Python
-* Pandas
-* Requests
-* StatsBomb Open Data
-* Matplotlib / Plotly
-* Streamlit (planned dashboard)
-
----
-
-# 🚀 Future Improvements
-
-Planned extensions include:
-
-* zone-based corner analysis
-* near-post vs far-post deliveries
-* second-ball control metrics
-* xG weighting of corner outcomes
-* full Streamlit dashboard deployment
-
----
-
-# 📁 Project Structure
-
-```bash
+📊 Key Insights
+Set-piece outcomes are heavily influenced by first-contact battles, not final shots.
+Teams with strong aerial structure suppress danger early.
+Barcelona’s large sample shows consistent exposure but moderate control.
+Some teams show systemic weakness in defensive set-piece organisation rather than isolated mistakes.
+# Tools & Technologies
+Python
+Pandas
+Requests
+StatsBomb Open Data API
+Plotly (visualisation)
+Streamlit (dashboard development)
+#  Project Structure
 ├── data/
 ├── notebooks/
-├── app34.py
+├── app.py                # Streamlit dashboard
+├── FCCI_analysis.ipynb  # Exploratory analysis
 ├── README.md
 └── requirements.txt
-```
+# Streamlit Dashboard Features
+Interactive FCCI leaderboard
+Team filtering
+Win vs Danger breakdown
+League-wide ranking visualization
+Raw event inspection
+Fully cached multi-match pipeline
+📌 Key Contribution
 
----
+This project reframes set-piece analysis by shifting focus from:
 
-# 📌 Data Source
+❌ Final outcomes (goals, xG)
 
-StatsBomb Open Data
+to:
 
-https://github.com/statsbomb/open-data
+✅ First-contact control dynamics
 
----
-
-# 👤 Author
+# Future Work
+Zone-based corner analysis (near post vs far post)
+Weighted FCCI (event importance scoring)
+xG integration for set-piece danger
+Player-level aerial dominance metrics
+Multi-season comparison model
+# Author
 
 Stephen Yaw Ayamah
-
 Football Data Analytics Project
+
+# Data Source
+
+StatsBomb Open Data
+https://github.com/statsbomb/open-data
+
+# Final Insight
+
+“Teams don’t lose corners at the shot — they lose them at the first contact.”
